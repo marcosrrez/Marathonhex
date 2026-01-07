@@ -1,37 +1,63 @@
-import { type User, type InsertUser } from "@shared/schema";
+import type { WorkoutCompletion, InsertWorkoutCompletion } from "@shared/schema";
 import { randomUUID } from "crypto";
 
-// modify the interface with any CRUD methods
-// you might need
-
 export interface IStorage {
-  getUser(id: string): Promise<User | undefined>;
-  getUserByUsername(username: string): Promise<User | undefined>;
-  createUser(user: InsertUser): Promise<User>;
+  getCompletions(): Promise<Record<string, WorkoutCompletion>>;
+  getCompletion(week: number, day: string): Promise<WorkoutCompletion | undefined>;
+  upsertCompletion(data: InsertWorkoutCompletion): Promise<WorkoutCompletion>;
+  deleteCompletion(week: number, day: string): Promise<void>;
 }
 
 export class MemStorage implements IStorage {
-  private users: Map<string, User>;
+  private completions: Map<string, WorkoutCompletion>;
 
   constructor() {
-    this.users = new Map();
+    this.completions = new Map();
   }
 
-  async getUser(id: string): Promise<User | undefined> {
-    return this.users.get(id);
+  private getKey(week: number, day: string): string {
+    return `${week}-${day}`;
   }
 
-  async getUserByUsername(username: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.username === username,
-    );
+  async getCompletions(): Promise<Record<string, WorkoutCompletion>> {
+    const result: Record<string, WorkoutCompletion> = {};
+    this.completions.forEach((value, key) => {
+      result[key] = value;
+    });
+    return result;
   }
 
-  async createUser(insertUser: InsertUser): Promise<User> {
-    const id = randomUUID();
-    const user: User = { ...insertUser, id };
-    this.users.set(id, user);
-    return user;
+  async getCompletion(week: number, day: string): Promise<WorkoutCompletion | undefined> {
+    return this.completions.get(this.getKey(week, day));
+  }
+
+  async upsertCompletion(data: InsertWorkoutCompletion): Promise<WorkoutCompletion> {
+    const key = this.getKey(data.week, data.day);
+    const existing = this.completions.get(key);
+    
+    const completion: WorkoutCompletion = {
+      id: existing?.id || randomUUID(),
+      week: data.week,
+      day: data.day,
+      status: data.status,
+      distance: data.distance,
+      duration: data.duration,
+      pace: data.pace,
+      elevation: data.elevation,
+      heartRate: data.heartRate,
+      effort: data.effort,
+      weather: data.weather,
+      notes: data.notes,
+      date: data.date,
+      completedAt: data.completedAt,
+    };
+
+    this.completions.set(key, completion);
+    return completion;
+  }
+
+  async deleteCompletion(week: number, day: string): Promise<void> {
+    this.completions.delete(this.getKey(week, day));
   }
 }
 
