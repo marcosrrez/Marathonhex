@@ -1,0 +1,756 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Marathon Training Tracker</title>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+      background: #0a0a0a;
+      color: #ffffff;
+    }
+    
+    .hexagon {
+      position: relative;
+      width: 60px;
+      height: 34.64px;
+      margin: 17.32px 0;
+      clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%);
+      transition: all 0.3s ease;
+    }
+    
+    .hexagon-inner {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      font-weight: 600;
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .hexagon-fill {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+      transition: height 0.1s linear;
+      height: 0%;
+    }
+    
+    .hexagon-content {
+      position: relative;
+      z-index: 10;
+      text-align: center;
+    }
+    
+    .hexagon:hover {
+      transform: scale(1.1);
+      cursor: pointer;
+    }
+    
+    .week-row {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 4px;
+    }
+    
+    @media (max-width: 640px) {
+      .hexagon {
+        width: 40px;
+        height: 23.09px;
+        margin: 11.55px 0;
+      }
+      .hexagon-inner {
+        font-size: 7px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  
+  <script type="text/babel">
+    const { useState, useEffect, useRef } = React;
+    
+    // Training plan data parsed from the PDF
+    const trainingPlan = {
+      1: {
+        monday: { type: 'intervals', title: '5min Intervals x3', details: '5min intervals X 3\n* 1-2min walk/jog between intervals\n* Goal: 2 miles at 10K pace\n\nDrills – and/or – strides', category: 'speed' },
+        tuesday: { type: 'recovery', title: '20-30min Jog', details: '20-30min: Jog – or – 30min: ____________\n\nStrength', category: 'recovery' },
+        wednesday: { type: 'aerobic', title: '30-40min Aerobic', details: '30-40min: Aerobic run\n\nStrides', category: 'aerobic' },
+        thursday: { type: 'recovery', title: '20-30min Jog', details: '20-30min: Jog – or – 30min: ____________\n\nStrength', category: 'recovery' },
+        friday: { type: 'jog', title: '40min Jog', details: '40min: Jog\n\nDrills', category: 'aerobic' },
+        saturday: { type: 'long', title: '60min Long Run', details: '60min: Long run', category: 'long' },
+        sunday: { type: 'rest', title: 'Rest', details: 'Rest – or – Fun active play', category: 'rest' }
+      },
+      2: {
+        monday: { type: 'fartlek', title: '30min Fartlek', details: '30min: Fartlek – or – hill run\n\nDrills – and/or – strides', category: 'speed' },
+        tuesday: { type: 'recovery', title: '20-30min Jog', details: '20-30min: Jog – or – 30min: ____________\n\nStrength', category: 'recovery' },
+        wednesday: { type: 'aerobic', title: '40-45min Aerobic', details: '40-45 min: Aerobic run\n\nStrides', category: 'aerobic' },
+        thursday: { type: 'recovery', title: '20-30min Jog', details: '20-30min: Jog – or – 30min: ____________\n\nStrength', category: 'recovery' },
+        friday: { type: 'jog', title: '40min Jog', details: '40min: Jog\n\nDrills', category: 'aerobic' },
+        saturday: { type: 'tempo', title: '40min Tempo', details: '40min: Tempo run\nGo out easy, finish fast & strong', category: 'tempo' },
+        sunday: { type: 'rest', title: 'Rest', details: 'Rest – or – Fun active play', category: 'rest' }
+      },
+      3: {
+        monday: { type: 'hills', title: '45min Hilly Run', details: '45min: Hilly run\nQuicker on the uphills. Practice opening your stride, increasing turnover and relaxing legs on the downhills.\n\nDrills – and/or – strides', category: 'speed' },
+        tuesday: { type: 'recovery', title: '20-30min Jog', details: '20-30min: Jog – or – 30min: ____________\n\nStrength', category: 'recovery' },
+        wednesday: { type: 'aerobic', title: '40-45min Aerobic', details: '40-45min: Aerobic run\n\nStrides', category: 'aerobic' },
+        thursday: { type: 'recovery', title: '20-30min Jog', details: '20-30min: Jog – or – 30min: ____________\n\nStrength', category: 'recovery' },
+        friday: { type: 'jog', title: '40min Jog', details: '40min: Jog\n\nDrills', category: 'aerobic' },
+        saturday: { type: 'long', title: '60-70min Long Run', details: '60-70min: Long run', category: 'long' },
+        sunday: { type: 'rest', title: 'Rest', details: 'Rest – or – Fun active play', category: 'rest' }
+      },
+      4: {
+        monday: { type: 'intervals', title: '4min Intervals x4', details: '4min intervals X 4\n* 1-2min walk/jog between intervals\n* Goal: 2-3 miles at 10K pace\n\nDrills – and/or – strides', category: 'speed' },
+        tuesday: { type: 'recovery', title: '20-30min Jog', details: '20-30min: Jog – or – 30min: ____________\n\nStrength', category: 'recovery' },
+        wednesday: { type: 'aerobic', title: '45-50min Aerobic', details: '45-50min: Aerobic run\n\nStrides', category: 'aerobic' },
+        thursday: { type: 'recovery', title: '20-30min Jog', details: '20-30min: Jog – or – 30min: ____________\n\nStrength', category: 'recovery' },
+        friday: { type: 'jog', title: '45min Jog', details: '45min: Jog\n\nDrills', category: 'aerobic' },
+        saturday: { type: 'tempo', title: '50min Tempo', details: '50min: Tempo run\nGo out easy, finish fast & strong\n\nDrills – and/or – strides', category: 'tempo' },
+        sunday: { type: 'rest', title: 'Rest', details: 'Rest – or – Fun active play', category: 'rest' }
+      },
+      5: {
+        monday: { type: 'fartlek', title: '45min Fartlek', details: '45min: Fartlek – or – hill run\n\nDrills – and/or – strides', category: 'speed' },
+        tuesday: { type: 'recovery', title: '20-30min Jog', details: '20-30min: Jog – or – 30min: ____________\n\nStrength', category: 'recovery' },
+        wednesday: { type: 'aerobic', title: '50-55min Aerobic', details: '50-55min: Aerobic run\n\nStrides', category: 'aerobic' },
+        thursday: { type: 'recovery', title: '20-30min Jog', details: '20-30min: Jog – or – 30min: ____________\n\nStrength', category: 'recovery' },
+        friday: { type: 'jog', title: '45min Jog', details: '45min: Jog\n\nDrills', category: 'aerobic' },
+        saturday: { type: 'long', title: '90min Long Run', details: '90min: Long run', category: 'long' },
+        sunday: { type: 'rest', title: 'Rest', details: 'Rest – or – Fun active play', category: 'rest' }
+      },
+      6: {
+        monday: { type: 'fartlek', title: '50min Fartlek', details: '50min: Fartlek – or – hill run\n\nDrills – and/or – strides', category: 'speed' },
+        tuesday: { type: 'recovery', title: '20-30min Jog', details: '20-30min: Jog – or – 30min: ____________\n\nStrength', category: 'recovery' },
+        wednesday: { type: 'aerobic', title: '40-45min Aerobic', details: '40-45min: Aerobic run\n\nStrides', category: 'aerobic' },
+        thursday: { type: 'recovery', title: '20-30min Jog', details: '20-30min: Jog – or – 30min: ____________\n\nStrength', category: 'recovery' },
+        friday: { type: 'jog', title: '45min Jog', details: '45min: Jog\n\nDrills', category: 'aerobic' },
+        saturday: { type: 'tempo', title: '55min Tempo', details: '55min: Tempo run\nGo out easy, finish fast & strong\n\nDrills – and/or – strides', category: 'tempo' },
+        sunday: { type: 'rest', title: 'Rest', details: 'Rest – or – Fun active play', category: 'rest' }
+      },
+      7: {
+        monday: { type: 'intervals', title: '5-6min Intervals x4', details: '5-6min intervals X 4\n* 1-2min walk/jog between intervals\n* Goal: approx. 3 miles at 10K pace\n\nDrills – and/or – strides', category: 'speed' },
+        tuesday: { type: 'recovery', title: '20-30min Jog', details: '20-30min: Jog – or – 30min: ____________\n\nStrength', category: 'recovery' },
+        wednesday: { type: 'aerobic', title: '50-55min Aerobic', details: '50-55min: Aerobic run\n\nStrides', category: 'aerobic' },
+        thursday: { type: 'recovery', title: '20-30min Jog', details: '20-30min: Jog – or – 30min: ____________\n\nStrength', category: 'recovery' },
+        friday: { type: 'jog', title: '50min Jog', details: '50min: Jog\n\nDrills', category: 'aerobic' },
+        saturday: { type: 'long', title: '100-120min Long Run', details: '100-120min: Long run', category: 'long' },
+        sunday: { type: 'rest', title: 'Rest', details: 'Rest – or – Fun active play', category: 'rest' }
+      },
+      8: {
+        monday: { type: 'fartlek', title: '40-45min Fartlek', details: '40-45min: Fartlek – or – hill run\n\nDrills – and/or – strides', category: 'speed' },
+        tuesday: { type: 'recovery', title: '20-30min Jog', details: '20-30min: Jog – or – 30min: ____________\n\nStrength', category: 'recovery' },
+        wednesday: { type: 'aerobic', title: '60min Aerobic', details: '60min: Aerobic run\n\nStrides', category: 'aerobic' },
+        thursday: { type: 'recovery', title: '20-30min Jog', details: '20-30min: Jog – or – 30min: ____________\n\nStrength', category: 'recovery' },
+        friday: { type: 'jog', title: '50min Jog', details: '50min: Jog\n\nDrills', category: 'aerobic' },
+        saturday: { type: 'long', title: '60-90min Long Run', details: '60-90min: Long run', category: 'long' },
+        sunday: { type: 'rest', title: 'Rest', details: 'Rest – or – Fun active play', category: 'rest' }
+      },
+      9: {
+        monday: { type: 'fartlek', title: '40-45min Fartlek', details: '40-45min: Fartlek – or – hill run\n\nDrills – and/or – strides', category: 'speed' },
+        tuesday: { type: 'recovery', title: '20-30min Jog', details: '20-30min: Jog – or – 30min: ____________\n\nStrength', category: 'recovery' },
+        wednesday: { type: 'aerobic', title: '60min Aerobic', details: '60min: Aerobic run\n\nStrides', category: 'aerobic' },
+        thursday: { type: 'recovery', title: '20-30min Jog', details: '20-30min: Jog – or – 30min: ____________\n\nStrength', category: 'recovery' },
+        friday: { type: 'jog', title: '50min Jog', details: '50min: Jog\n\nDrills', category: 'aerobic' },
+        saturday: { type: 'tempo', title: '55min Tempo', details: '55min: Tempo run\nGo out easy, finish fast & strong\n\nDrills – and/or – strides', category: 'tempo' },
+        sunday: { type: 'rest', title: 'Rest', details: 'Rest – or – Fun active play', category: 'rest' }
+      },
+      10: {
+        monday: { type: 'intervals', title: '8min Intervals x3', details: '8min intervals X 3\n* Goal: approx. 3 miles at 10K pace\n* 1-2min walk/jog between intervals\n\nDrills – and/or – strides', category: 'speed' },
+        tuesday: { type: 'recovery', title: '20-30min Jog', details: '20-30min: Jog – or – 30min: ____________\n\nStrength', category: 'recovery' },
+        wednesday: { type: 'aerobic', title: '70min Aerobic', details: '70min: Aerobic run\n\nStrides', category: 'aerobic' },
+        thursday: { type: 'recovery', title: '20-30min Jog', details: '20-30min: Jog – or – 30min: ____________\n\nStrength', category: 'recovery' },
+        friday: { type: 'jog', title: '50-60min Jog', details: '50-60min: Jog\n\nDrills', category: 'aerobic' },
+        saturday: { type: 'long', title: '100-120min Long Run', details: '100-120min: Long run', category: 'long' },
+        sunday: { type: 'rest', title: 'Rest', details: 'Rest – or – Fun active play', category: 'rest' }
+      },
+      11: {
+        monday: { type: 'fartlek', title: '50-55min Fartlek', details: '50-55min: Fartlek – or – hill run\n\nDrills – and/or – Strides', category: 'speed' },
+        tuesday: { type: 'recovery', title: '20-30min Jog', details: '20-30min: Jog – or – 30min: ____________\n\nStrength', category: 'recovery' },
+        wednesday: { type: 'aerobic', title: '70min Aerobic', details: '70min: Aerobic run\n\nStrides', category: 'aerobic' },
+        thursday: { type: 'recovery', title: '20-30min Jog', details: '20-30min: Jog – or – 30min: ____________\n\nStrength', category: 'recovery' },
+        friday: { type: 'jog', title: '50-60min Jog', details: '50-60min: Jog\n\nDrills', category: 'aerobic' },
+        saturday: { type: 'tempo', title: '60min Tempo', details: '60min: Tempo run\nGo out easy, finish fast & strong\n\nDrills – and/or – strides', category: 'tempo' },
+        sunday: { type: 'rest', title: 'Rest', details: 'Rest – or – Fun active play', category: 'rest' }
+      },
+      12: {
+        monday: { type: 'fartlek', title: '45-50min Fartlek', details: '45-50min: Fartlek – or – hill run\n\nDrills – and/or – Strides', category: 'speed' },
+        tuesday: { type: 'recovery', title: '20-30min Jog', details: '20-30min: Jog – or – 30min: ____________\n\nStrength', category: 'recovery' },
+        wednesday: { type: 'aerobic', title: '60min Aerobic', details: '60min: Aerobic run\n\nStrides', category: 'aerobic' },
+        thursday: { type: 'recovery', title: '20-30min Jog', details: '20-30min: Jog – or – 30min: ____________\n\nStrength', category: 'recovery' },
+        friday: { type: 'jog', title: '50-60min Jog', details: '50-60min: Jog\n\nDrills', category: 'aerobic' },
+        saturday: { type: 'long', title: '120min Long Run', details: '120min: Long run', category: 'long' },
+        sunday: { type: 'rest', title: 'Rest', details: 'Rest – or – Fun active play', category: 'rest' }
+      },
+      13: {
+        monday: { type: 'intervals', title: '5-6min Intervals x4', details: '5-6min intervals X 4\n* 1-2min walk/jog between intervals\n* Goal: approx. 3 miles at 10K pace\n\nDrills – and/or – strides', category: 'speed' },
+        tuesday: { type: 'recovery', title: '20-30min Jog', details: '20-30min: Jog – or – 30min: ____________\n\nStrength', category: 'recovery' },
+        wednesday: { type: 'aerobic', title: '75min Aerobic', details: '75min: Aerobic run\n\nStrides', category: 'aerobic' },
+        thursday: { type: 'recovery', title: '20-30min Jog', details: '20-30min: Jog – or – 30min: ____________\n\nStrength', category: 'recovery' },
+        friday: { type: 'jog', title: '50-60min Jog', details: '50-60min: Jog\n\nDrills', category: 'aerobic' },
+        saturday: { type: 'tempo', title: '55min Tempo', details: '55min: Tempo run\nGo out easy, finish fast and strong\n\nDrills – and/or – strides', category: 'tempo' },
+        sunday: { type: 'rest', title: 'Rest', details: 'Rest – or – Fun active play', category: 'rest' }
+      },
+      14: {
+        monday: { type: 'fartlek', title: '45-50min Fartlek', details: '45-50min: Fartlek – or – hill run\n\nDrills – and/or – strides', category: 'speed' },
+        tuesday: { type: 'recovery', title: '20-30min Jog', details: '20-30min: Jog – or – 30min: ____________\n\nStrength', category: 'recovery' },
+        wednesday: { type: 'aerobic', title: '70min Aerobic', details: '70min: Aerobic run\n\nStrides', category: 'aerobic' },
+        thursday: { type: 'recovery', title: '20-30min Jog', details: '20-30min: Jog – or – 30min: ____________\n\nStrength', category: 'recovery' },
+        friday: { type: 'jog', title: '50min Jog', details: '50min: Jog\n\nDrills', category: 'aerobic' },
+        saturday: { type: 'long', title: '90min Long Run', details: '90min: Long run', category: 'long' },
+        sunday: { type: 'rest', title: 'Rest', details: 'Rest – or – Fun active play', category: 'rest' }
+      },
+      15: {
+        monday: { type: 'fartlek', title: '45-50min Fartlek', details: '45-50min: Fartlek – or – hill run\n\nDrills – and/or – strides', category: 'speed' },
+        tuesday: { type: 'recovery', title: '20-30min Jog', details: '20-30min: Jog – or – 30min: ____________\n\nStrength', category: 'recovery' },
+        wednesday: { type: 'aerobic', title: '45-50min Aerobic', details: '45-50min: Aerobic run\n\nStrides', category: 'aerobic' },
+        thursday: { type: 'recovery', title: '20-30min Jog', details: '20-30min: Jog – or – 30min: ____________\n\nStrength', category: 'recovery' },
+        friday: { type: 'jog', title: '40min Jog', details: '40min: Jog\n\nDrills', category: 'aerobic' },
+        saturday: { type: 'tempo', title: '45-50min Tempo', details: '45-50min: Tempo run\nGo out easy, finish fast and strong\n\nDrills – and/or – strides', category: 'tempo' },
+        sunday: { type: 'rest', title: 'Rest', details: 'Rest – or – Fun active play', category: 'rest' }
+      },
+      16: {
+        monday: { type: 'intervals', title: '4min Intervals x3', details: '4min intervals X 3\n* 2-3min walk/jog between intervals\n* Stay relaxed, keeping some speed in taper\n\nDrills – and/or – strides', category: 'speed' },
+        tuesday: { type: 'recovery', title: '20-30min Jog', details: '20-30min: Jog – or – 30min: ____________\n\nStrength', category: 'recovery' },
+        wednesday: { type: 'aerobic', title: '30min Aerobic', details: '30min: Aerobic run\n\nStrides', category: 'aerobic' },
+        thursday: { type: 'rest', title: 'Rest', details: 'Rest', category: 'rest' },
+        friday: { type: 'jog', title: '30min Easy', details: '30min: Easy run\n\nStrides', category: 'aerobic' },
+        saturday: { type: 'rest', title: 'Rest', details: 'Rest', category: 'rest' },
+        sunday: { type: 'race', title: 'Marathon Day!', details: 'Marathon Day!', category: 'race' }
+      }
+    };
+    
+    const categoryColors = {
+      speed: { bg: '#ef4444', light: '#fca5a5', dark: '#b91c1c' },
+      recovery: { bg: '#3b82f6', light: '#93c5fd', dark: '#1e40af' },
+      aerobic: { bg: '#10b981', light: '#6ee7b7', dark: '#047857' },
+      tempo: { bg: '#f59e0b', light: '#fcd34d', dark: '#d97706' },
+      long: { bg: '#8b5cf6', light: '#c4b5fd', dark: '#6d28d9' },
+      rest: { bg: '#6b7280', light: '#d1d5db', dark: '#374151' },
+      race: { bg: '#ec4899', light: '#f9a8d4', dark: '#be185d' }
+    };
+    
+    function Hexagon({ week, day, workout, onSelect, onComplete, completionData }) {
+      const [holdProgress, setHoldProgress] = useState(0);
+      const holdTimerRef = useRef(null);
+      const holdStartRef = useRef(null);
+      
+      const dayNames = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+      const dayIndex = dayNames.indexOf(day);
+      const dayAbbr = ['M', 'T', 'W', 'T', 'F', 'S', 'S'][dayIndex];
+      
+      const status = completionData?.status || 'incomplete';
+      const color = categoryColors[workout?.category] || categoryColors.rest;
+      
+      const handleTouchStart = (e) => {
+        e.preventDefault();
+        if (status === 'complete') {
+          onSelect(week, day);
+          return;
+        }
+        
+        holdStartRef.current = Date.now();
+        holdTimerRef.current = setInterval(() => {
+          const elapsed = Date.now() - holdStartRef.current;
+          const progress = Math.min((elapsed / 3000) * 100, 100);
+          setHoldProgress(progress);
+          
+          if (progress >= 100) {
+            clearInterval(holdTimerRef.current);
+            onComplete(week, day, 'complete');
+            setHoldProgress(0);
+          }
+        }, 50);
+      };
+      
+      const handleTouchEnd = () => {
+        if (holdTimerRef.current) {
+          clearInterval(holdTimerRef.current);
+          holdTimerRef.current = null;
+        }
+        if (holdProgress < 100) {
+          setHoldProgress(0);
+        }
+      };
+      
+      const handleClick = () => {
+        onSelect(week, day);
+      };
+      
+      let bgColor = '#1a1a1a';
+      if (status === 'complete') {
+        bgColor = color.bg;
+      } else if (status === 'partial') {
+        bgColor = color.dark;
+      }
+      
+      return (
+        <div 
+          className="hexagon"
+          onTouchStart={handleTouchStart}
+          onTouchEnd={handleTouchEnd}
+          onMouseDown={handleTouchStart}
+          onMouseUp={handleTouchEnd}
+          onMouseLeave={handleTouchEnd}
+          onClick={handleClick}
+        >
+          <div className="hexagon-inner" style={{ background: bgColor }}>
+            {status === 'incomplete' && (
+              <div 
+                className="hexagon-fill" 
+                style={{ 
+                  height: `${holdProgress}%`,
+                  background: `linear-gradient(135deg, ${color.light} 0%, ${color.bg} 100%)`
+                }}
+              />
+            )}
+            <div className="hexagon-content">
+              <div style={{ fontSize: '8px', opacity: 0.7 }}>W{week}</div>
+              <div>{dayAbbr}</div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+    
+    function WorkoutModal({ week, day, workout, onClose, onSave, completionData }) {
+      const [formData, setFormData] = useState(completionData || {
+        status: 'incomplete',
+        distance: '',
+        duration: '',
+        pace: '',
+        elevation: '',
+        heartRate: '',
+        effort: 5,
+        weather: '',
+        notes: '',
+        date: new Date().toISOString().split('T')[0]
+      });
+      
+      const dayNames = { monday: 'Monday', tuesday: 'Tuesday', wednesday: 'Wednesday', thursday: 'Thursday', friday: 'Friday', saturday: 'Saturday', sunday: 'Sunday' };
+      
+      const handleSave = () => {
+        onSave(week, day, formData);
+        onClose();
+      };
+      
+      const handleMarkComplete = () => {
+        const updatedData = { ...formData, status: 'complete', completedAt: new Date().toISOString() };
+        onSave(week, day, updatedData);
+        onClose();
+      };
+      
+      const handleMarkIncomplete = () => {
+        const updatedData = { ...formData, status: 'incomplete' };
+        onSave(week, day, updatedData);
+      };
+      
+      return (
+        <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center p-4 z-50" onClick={onClose}>
+          <div className="bg-zinc-900 rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="p-6">
+              <div className="flex justify-between items-start mb-4">
+                <div>
+                  <h2 className="text-2xl font-bold text-white">Week {week} - {dayNames[day]}</h2>
+                  <p className="text-amber-500 text-lg">{workout?.title}</p>
+                </div>
+                <button onClick={onClose} className="text-gray-400 hover:text-white text-2xl">&times;</button>
+              </div>
+              
+              <div className="mb-6 p-4 bg-zinc-800 rounded">
+                <h3 className="text-white font-semibold mb-2">Workout Details</h3>
+                <pre className="text-gray-300 text-sm whitespace-pre-wrap font-sans">{workout?.details}</pre>
+              </div>
+              
+              <div className="mb-6">
+                <h3 className="text-white font-semibold mb-4">Track Your Run</h3>
+                
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                  <div>
+                    <label className="block text-gray-400 text-sm mb-1">Distance (miles)</label>
+                    <input 
+                      type="number" 
+                      step="0.1"
+                      value={formData.distance}
+                      onChange={e => setFormData({...formData, distance: e.target.value})}
+                      className="w-full bg-zinc-800 text-white rounded px-3 py-2"
+                      placeholder="0.0"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-gray-400 text-sm mb-1">Duration (min)</label>
+                    <input 
+                      type="number"
+                      value={formData.duration}
+                      onChange={e => setFormData({...formData, duration: e.target.value})}
+                      className="w-full bg-zinc-800 text-white rounded px-3 py-2"
+                      placeholder="0"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-gray-400 text-sm mb-1">Avg Pace (min/mi)</label>
+                    <input 
+                      type="text"
+                      value={formData.pace}
+                      onChange={e => setFormData({...formData, pace: e.target.value})}
+                      className="w-full bg-zinc-800 text-white rounded px-3 py-2"
+                      placeholder="8:30"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-gray-400 text-sm mb-1">Elevation Gain (ft)</label>
+                    <input 
+                      type="number"
+                      value={formData.elevation}
+                      onChange={e => setFormData({...formData, elevation: e.target.value})}
+                      className="w-full bg-zinc-800 text-white rounded px-3 py-2"
+                      placeholder="0"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-gray-400 text-sm mb-1">Avg Heart Rate (bpm)</label>
+                    <input 
+                      type="number"
+                      value={formData.heartRate}
+                      onChange={e => setFormData({...formData, heartRate: e.target.value})}
+                      className="w-full bg-zinc-800 text-white rounded px-3 py-2"
+                      placeholder="150"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-gray-400 text-sm mb-1">Weather</label>
+                    <input 
+                      type="text"
+                      value={formData.weather}
+                      onChange={e => setFormData({...formData, weather: e.target.value})}
+                      className="w-full bg-zinc-800 text-white rounded px-3 py-2"
+                      placeholder="Sunny, 72°F"
+                    />
+                  </div>
+                </div>
+                
+                <div className="mb-4">
+                  <label className="block text-gray-400 text-sm mb-1">Perceived Effort (1-10)</label>
+                  <input 
+                    type="range"
+                    min="1"
+                    max="10"
+                    value={formData.effort}
+                    onChange={e => setFormData({...formData, effort: parseInt(e.target.value)})}
+                    className="w-full"
+                  />
+                  <div className="text-center text-white text-lg">{formData.effort}/10</div>
+                </div>
+                
+                <div>
+                  <label className="block text-gray-400 text-sm mb-1">Notes</label>
+                  <textarea 
+                    value={formData.notes}
+                    onChange={e => setFormData({...formData, notes: e.target.value})}
+                    className="w-full bg-zinc-800 text-white rounded px-3 py-2 h-24"
+                    placeholder="How did the run feel? Any observations?"
+                  />
+                </div>
+              </div>
+              
+              <div className="flex gap-3">
+                {formData.status === 'complete' ? (
+                  <button 
+                    onClick={handleMarkIncomplete}
+                    className="flex-1 bg-zinc-700 text-white py-3 rounded font-semibold hover:bg-zinc-600"
+                  >
+                    Mark Incomplete
+                  </button>
+                ) : (
+                  <button 
+                    onClick={handleMarkComplete}
+                    className="flex-1 bg-amber-600 text-white py-3 rounded font-semibold hover:bg-amber-700"
+                  >
+                    Mark Complete
+                  </button>
+                )}
+                <button 
+                  onClick={handleSave}
+                  className="flex-1 bg-blue-600 text-white py-3 rounded font-semibold hover:bg-blue-700"
+                >
+                  Save Data
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+    
+    function StatsView({ completions }) {
+      const completedWorkouts = Object.values(completions).filter(c => c.status === 'complete').length;
+      const totalWorkouts = 16 * 7;
+      const completionRate = Math.round((completedWorkouts / totalWorkouts) * 100);
+      
+      const totalDistance = Object.values(completions)
+        .filter(c => c.distance)
+        .reduce((sum, c) => sum + parseFloat(c.distance || 0), 0)
+        .toFixed(1);
+      
+      const totalDuration = Object.values(completions)
+        .filter(c => c.duration)
+        .reduce((sum, c) => sum + parseFloat(c.duration || 0), 0);
+      
+      const avgPaceData = Object.values(completions)
+        .filter(c => c.pace && c.pace.includes(':'))
+        .map(c => {
+          const [min, sec] = c.pace.split(':').map(Number);
+          return min + sec / 60;
+        });
+      
+      const avgPace = avgPaceData.length > 0 
+        ? avgPaceData.reduce((sum, p) => sum + p, 0) / avgPaceData.length 
+        : 0;
+      
+      const avgPaceMin = Math.floor(avgPace);
+      const avgPaceSec = Math.round((avgPace - avgPaceMin) * 60);
+      
+      return (
+        <div className="p-6 max-w-4xl mx-auto">
+          <h2 className="text-3xl font-bold text-white mb-6">Training Stats</h2>
+          
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+            <div className="bg-zinc-800 p-4 rounded-lg">
+              <div className="text-gray-400 text-sm">Completion Rate</div>
+              <div className="text-3xl font-bold text-amber-500">{completionRate}%</div>
+              <div className="text-gray-500 text-xs">{completedWorkouts}/{totalWorkouts} workouts</div>
+            </div>
+            
+            <div className="bg-zinc-800 p-4 rounded-lg">
+              <div className="text-gray-400 text-sm">Total Distance</div>
+              <div className="text-3xl font-bold text-green-500">{totalDistance}</div>
+              <div className="text-gray-500 text-xs">miles</div>
+            </div>
+            
+            <div className="bg-zinc-800 p-4 rounded-lg">
+              <div className="text-gray-400 text-sm">Total Time</div>
+              <div className="text-3xl font-bold text-blue-500">{Math.round(totalDuration)}</div>
+              <div className="text-gray-500 text-xs">minutes</div>
+            </div>
+            
+            <div className="bg-zinc-800 p-4 rounded-lg">
+              <div className="text-gray-400 text-sm">Avg Pace</div>
+              <div className="text-3xl font-bold text-purple-500">
+                {avgPace > 0 ? `${avgPaceMin}:${avgPaceSec.toString().padStart(2, '0')}` : '--'}
+              </div>
+              <div className="text-gray-500 text-xs">min/mile</div>
+            </div>
+          </div>
+          
+          <div className="bg-zinc-800 p-6 rounded-lg">
+            <h3 className="text-white font-semibold mb-4">Recent Activities</h3>
+            <div className="space-y-3">
+              {Object.entries(completions)
+                .filter(([_, data]) => data.status === 'complete' && data.completedAt)
+                .sort(([_, a], [__, b]) => new Date(b.completedAt) - new Date(a.completedAt))
+                .slice(0, 10)
+                .map(([key, data]) => {
+                  const [week, day] = key.split('-');
+                  const workout = trainingPlan[week][day];
+                  return (
+                    <div key={key} className="flex justify-between items-center border-b border-zinc-700 pb-2">
+                      <div>
+                        <div className="text-white font-medium">{workout.title}</div>
+                        <div className="text-gray-400 text-sm">Week {week} - {new Date(data.completedAt).toLocaleDateString()}</div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-white">{data.distance} mi</div>
+                        <div className="text-gray-400 text-sm">{data.pace || '--'}</div>
+                      </div>
+                    </div>
+                  );
+                })}
+            </div>
+          </div>
+        </div>
+      );
+    }
+    
+    function App() {
+      const [view, setView] = useState('full'); // 'day', 'week', 'full', 'stats'
+      const [selectedWeek, setSelectedWeek] = useState(1);
+      const [selectedDay, setSelectedDay] = useState(null);
+      const [completions, setCompletions] = useState(() => {
+        const saved = localStorage.getItem('marathon-completions');
+        return saved ? JSON.parse(saved) : {};
+      });
+      
+      useEffect(() => {
+        localStorage.setItem('marathon-completions', JSON.stringify(completions));
+      }, [completions]);
+      
+      const handleSelect = (week, day) => {
+        setSelectedWeek(week);
+        setSelectedDay(day);
+      };
+      
+      const handleComplete = (week, day, status) => {
+        const key = `${week}-${day}`;
+        setCompletions(prev => ({
+          ...prev,
+          [key]: {
+            ...(prev[key] || {}),
+            status,
+            completedAt: new Date().toISOString()
+          }
+        }));
+      };
+      
+      const handleSaveData = (week, day, data) => {
+        const key = `${week}-${day}`;
+        setCompletions(prev => ({
+          ...prev,
+          [key]: data
+        }));
+      };
+      
+      const dayNames = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+      
+      return (
+        <div className="min-h-screen bg-black">
+          {/* Header */}
+          <div className="bg-zinc-900 border-b border-zinc-800 p-4">
+            <h1 className="text-2xl font-bold text-white text-center">Marathon Training</h1>
+            <div className="flex justify-center gap-2 mt-3">
+              <button 
+                onClick={() => setView('full')}
+                className={`px-4 py-2 rounded ${view === 'full' ? 'bg-amber-600 text-white' : 'bg-zinc-800 text-gray-300'}`}
+              >
+                Full
+              </button>
+              <button 
+                onClick={() => setView('week')}
+                className={`px-4 py-2 rounded ${view === 'week' ? 'bg-amber-600 text-white' : 'bg-zinc-800 text-gray-300'}`}
+              >
+                Week
+              </button>
+              <button 
+                onClick={() => setView('stats')}
+                className={`px-4 py-2 rounded ${view === 'stats' ? 'bg-amber-600 text-white' : 'bg-zinc-800 text-gray-300'}`}
+              >
+                Stats
+              </button>
+            </div>
+          </div>
+          
+          {/* Content */}
+          {view === 'stats' ? (
+            <StatsView completions={completions} />
+          ) : view === 'week' ? (
+            <div className="p-6 max-w-4xl mx-auto">
+              <div className="flex justify-center gap-2 mb-6">
+                <button 
+                  onClick={() => setSelectedWeek(Math.max(1, selectedWeek - 1))}
+                  className="bg-zinc-800 text-white px-4 py-2 rounded"
+                  disabled={selectedWeek === 1}
+                >
+                  ← Prev
+                </button>
+                <div className="bg-zinc-800 text-white px-6 py-2 rounded font-bold">
+                  Week {selectedWeek}
+                </div>
+                <button 
+                  onClick={() => setSelectedWeek(Math.min(16, selectedWeek + 1))}
+                  className="bg-zinc-800 text-white px-4 py-2 rounded"
+                  disabled={selectedWeek === 16}
+                >
+                  Next →
+                </button>
+              </div>
+              
+              <div className="flex justify-center gap-3">
+                {dayNames.map((day, idx) => {
+                  const workout = trainingPlan[selectedWeek][day];
+                  const key = `${selectedWeek}-${day}`;
+                  return (
+                    <Hexagon 
+                      key={day}
+                      week={selectedWeek}
+                      day={day}
+                      workout={workout}
+                      onSelect={handleSelect}
+                      onComplete={handleComplete}
+                      completionData={completions[key]}
+                    />
+                  );
+                })}
+              </div>
+            </div>
+          ) : (
+            <div className="p-4 md:p-6 max-w-6xl mx-auto">
+              <div className="flex flex-col items-center gap-2">
+                {Object.keys(trainingPlan).map(week => (
+                  <div key={week} className="week-row">
+                    <div className="text-gray-500 text-xs flex items-center mr-2 min-w-[30px]">W{week}</div>
+                    {dayNames.map(day => {
+                      const workout = trainingPlan[week][day];
+                      const key = `${week}-${day}`;
+                      return (
+                        <Hexagon 
+                          key={day}
+                          week={week}
+                          day={day}
+                          workout={workout}
+                          onSelect={handleSelect}
+                          onComplete={handleComplete}
+                          completionData={completions[key]}
+                        />
+                      );
+                    })}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          
+          {/* Modal */}
+          {selectedDay && (
+            <WorkoutModal 
+              week={selectedWeek}
+              day={selectedDay}
+              workout={trainingPlan[selectedWeek][selectedDay]}
+              onClose={() => setSelectedDay(null)}
+              onSave={handleSaveData}
+              completionData={completions[`${selectedWeek}-${selectedDay}`]}
+            />
+          )}
+          
+          {/* Legend */}
+          <div className="fixed bottom-4 right-4 bg-zinc-900 p-4 rounded-lg border border-zinc-800 text-xs">
+            <div className="text-gray-400 font-semibold mb-2">Legend</div>
+            {Object.entries(categoryColors).map(([key, color]) => (
+              <div key={key} className="flex items-center gap-2 mb-1">
+                <div style={{ background: color.bg }} className="w-4 h-4 rounded"></div>
+                <span className="text-gray-300 capitalize">{key}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+    
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>
