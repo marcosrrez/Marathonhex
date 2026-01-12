@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useMemo } from "react";
 import { motion } from "framer-motion";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Header } from "@/components/header";
@@ -8,9 +8,15 @@ import { WeekRow } from "@/components/week-row";
 import { WorkoutModal } from "@/components/workout-modal";
 import { CategoryLegend } from "@/components/category-legend";
 import { StravaConnect } from "@/components/strava-connect";
+import { InsightsFeed } from "@/components/insights-feed";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { trainingPlan } from "@/lib/training-data";
+import { 
+  calculateTrainingMetrics, 
+  calculateWeeklySummary, 
+  generateInsights 
+} from "@/lib/analytics-engine";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { WorkoutCompletion, DayName } from "@shared/schema";
 import { dayNames } from "@shared/schema";
@@ -135,6 +141,26 @@ export default function Home() {
     (c) => c.status === "complete"
   ).length;
 
+  const { metrics, weeklySummaries, insights } = useMemo(() => {
+    if (Object.keys(completions).length === 0) {
+      return { metrics: null, weeklySummaries: [], insights: [] };
+    }
+    
+    const summaries = [];
+    for (let w = 1; w <= currentWeek; w++) {
+      summaries.push(calculateWeeklySummary(w, completions));
+    }
+    
+    const calculatedMetrics = calculateTrainingMetrics(completions, currentWeek);
+    const generatedInsights = generateInsights(completions, currentWeek, calculatedMetrics, summaries);
+    
+    return {
+      metrics: calculatedMetrics,
+      weeklySummaries: summaries,
+      insights: generatedInsights,
+    };
+  }, [completions, currentWeek]);
+
   const selectedWorkoutData = selectedWorkout
     ? trainingPlan[selectedWorkout.week]?.[selectedWorkout.day]
     : null;
@@ -181,6 +207,33 @@ export default function Home() {
               completions={completions}
               currentWeek={currentWeek}
             />
+          )}
+        </section>
+
+        <section>
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.4 }}
+            className="mb-6"
+          >
+            <h2 className="font-display text-2xl sm:text-3xl font-bold tracking-tight text-foreground mb-2">
+              Training Insights
+            </h2>
+            <p className="text-muted-foreground">
+              Smart analysis of your training patterns
+            </p>
+          </motion.div>
+
+          {isLoading ? (
+            <div className="space-y-3">
+              {[...Array(3)].map((_, i) => (
+                <Skeleton key={i} className="h-24 rounded-md" />
+              ))}
+            </div>
+          ) : (
+            <InsightsFeed insights={insights} />
           )}
         </section>
 
