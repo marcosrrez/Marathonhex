@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Moon, Sun, Menu, Trophy } from "lucide-react";
+import { Moon, Sun } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useTheme } from "@/lib/theme-context";
@@ -24,9 +24,11 @@ export function Header({ currentWeek, totalWorkouts, completedWorkouts }: Header
       <div className="container mx-auto px-4 h-16 flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-md bg-primary flex items-center justify-center">
-              <Trophy className="w-4 h-4 text-primary-foreground" />
-            </div>
+            <img 
+              src="/favicon.jpg" 
+              alt="Marathon Tracker" 
+              className="w-8 h-8 rounded-md object-cover"
+            />
             <div className="hidden sm:block">
               <h1 className="font-display font-bold text-lg tracking-tight text-foreground">
                 Marathon Tracker
