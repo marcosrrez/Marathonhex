@@ -41,5 +41,3 @@ waitForPort = 5000
 [userenv]
 
 [userenv.shared]
-STRAVA_CLIENT_ID = "195507"
-STRAVA_CLIENT_SECRET = "ff4d8409d51dbe15b0b26b1c5014ad3a26667f6f"
