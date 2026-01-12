@@ -61,3 +61,27 @@ export const insertUserSchema = z.object({
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = InsertUser & { id: string };
+
+// Strava integration
+export interface StravaTokens {
+  accessToken: string;
+  refreshToken: string;
+  expiresAt: number;
+  athleteId: number;
+  athleteName: string;
+}
+
+export interface StravaActivity {
+  id: number;
+  name: string;
+  type: string;
+  distance: number;
+  movingTime: number;
+  elapsedTime: number;
+  startDate: string;
+  averageSpeed: number;
+  maxSpeed: number;
+  averageHeartrate?: number;
+  maxHeartrate?: number;
+  totalElevationGain: number;
+}

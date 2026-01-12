@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useRef } from "react";
 import { motion } from "framer-motion";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Header } from "@/components/header";
@@ -7,6 +7,7 @@ import { StatsDashboard } from "@/components/stats-dashboard";
 import { WeekRow } from "@/components/week-row";
 import { WorkoutModal } from "@/components/workout-modal";
 import { CategoryLegend } from "@/components/category-legend";
+import { StravaConnect } from "@/components/strava-connect";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { trainingPlan } from "@/lib/training-data";
@@ -60,6 +61,7 @@ export default function Home() {
     day: DayName;
   } | null>(null);
 
+  const trainingStartDate = getTrainingStartDate();
   const { week: currentWeek, day: currentDay, daysUntilRace } = getCurrentWeekAndDay();
 
   const { data: completions = {}, isLoading } = useQuery<Record<string, WorkoutCompletion>>({
@@ -180,6 +182,27 @@ export default function Home() {
               currentWeek={currentWeek}
             />
           )}
+        </section>
+
+        <section>
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.4 }}
+            className="mb-6"
+          >
+            <h2 className="font-display text-2xl sm:text-3xl font-bold tracking-tight text-foreground mb-2">
+              Auto-Sync
+            </h2>
+            <p className="text-muted-foreground">
+              Connect your fitness tracker to automatically log runs
+            </p>
+          </motion.div>
+
+          <div className="max-w-md">
+            <StravaConnect trainingStart={trainingStartDate.toISOString()} />
+          </div>
         </section>
 
         <section ref={calendarRef} className="scroll-mt-20">
